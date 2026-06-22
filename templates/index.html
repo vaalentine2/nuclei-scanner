@@ -2,18 +2,60 @@
 <html>
 <head>
     <title>Nuclei Security Scanner</title>
+    <style>
+        body { font-family: system-ui, sans-serif; max-width: 900px; margin: 2rem auto; padding: 0 1rem; }
+        input[type=text] { padding: .5rem; width: 60%; }
+        button { padding: .5rem 1rem; }
+        .error { color: #b00; }
+        table { border-collapse: collapse; width: 100%; margin-top: 1rem; }
+        th, td { border: 1px solid #ddd; padding: .5rem; text-align: left; font-size: .9rem; }
+        th { background: #f5f5f5; }
+        .badges span { display: inline-block; padding: .2rem .6rem; margin: 0 .4rem .4rem 0;
+                       border-radius: 4px; color: #fff; font-size: .85rem; text-transform: capitalize; }
+        .critical { background: #7b001c; } .high { background: #d32f2f; }
+        .medium { background: #f57c00; } .low { background: #fbc02d; color: #333; }
+        .info { background: #1976d2; } .unknown { background: #757575; }
+        a { color: #1976d2; }
+    </style>
 </head>
 <body>
     <h1>Nuclei Security Scanner</h1>
+    <p><a href="{{ url_for('index') }}">New scan</a> | <a href="{{ url_for('history') }}">Scan history</a></p>
 
-    <form method="POST">
+    <form method="POST" action="{{ url_for('index') }}">
         <input type="text" name="target" placeholder="https://example.com" required>
         <button type="submit">Scan</button>
     </form>
 
-    {% if result %}
-        <h2>Result:</h2>
-        <pre>{{ result }}</pre>
+    {% if error %}<p class="error">{{ error }}</p>{% endif %}
+
+    {% if report %}
+        <h2>Report: {{ report.target }}</h2>
+        <p>{{ report.scan_id }} &middot; {{ report.timestamp }} &middot; {{ report.total }} finding(s)</p>
+
+        <div class="badges">
+            {% for sev in severities %}
+                {% if report.summary.get(sev, 0) > 0 %}
+                    <span class="{{ sev }}">{{ sev }}: {{ report.summary[sev] }}</span>
+                {% endif %}
+            {% endfor %}
+        </div>
+
+        {% if report.findings %}
+            <table>
+                <tr><th>Severity</th><th>Name</th><th>Template</th><th>Matched At</th></tr>
+                {% for f in report.findings %}
+                    <tr>
+                        <td class="badges"><span class="{{ f.severity }}">{{ f.severity }}</span></td>
+                        <td>{{ f.name }}</td>
+                        <td>{{ f.template_id }}</td>
+                        <td>{{ f.matched_at }}</td>
+                    </tr>
+                {% endfor %}
+            </table>
+        {% else %}
+            <p>No vulnerabilities found. ✅</p>
+        {% endif %}
     {% endif %}
 </body>
 </html>
