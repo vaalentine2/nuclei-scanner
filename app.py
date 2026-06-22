@@ -1,37 +1,52 @@
-from flask import Flask, request, render_template
+from flask import Flask, render_template, request
 import subprocess
-import os
 
 app = Flask(__name__)
 
-@app.route("/")
-def home():
-    return render_template("index.html")
+@app.route("/", methods=["GET", "POST"])
+def index():
+    result = ""
 
-@app.route("/scan", methods=["POST"])
-def scan():
-    target = request.form.get("target", "").strip()
+    if request.method == "POST":
+        target = request.form.get("target", "").strip()
 
-    if not target:
-        return "Please enter a target URL."
+        if not target:
+            result = "Please enter a target."
+        else:
+            try:
+                command = [
+                    "nuclei",
+                    "-u", target,
+                    "-silent",
+                    "-timeout", "5",
+                    "-retries", "1",
+                    "-no-color"
+                ]
 
-    os.makedirs("results", exist_ok=True)
+                completed = subprocess.run(
+                    command,
+                    capture_output=True,
+                    text=True,
+                    timeout=60
+                )
 
-    cmd = [
-        "nuclei",
-        "-u",
-        target,
-        "-json-export",
-        "results/output.json"
-    ]
+                output = completed.stdout.strip()
+                error = completed.stderr.strip()
 
-    try:
-        subprocess.run(cmd, check=True, timeout=120)
-        return "Scan completed. Results saved to results/output.json"
-    except subprocess.TimeoutExpired:
-        return "Scan took too long and was stopped."
-    except subprocess.CalledProcessError as e:
-        return f"Scan failed: {e}"
+                if output:
+                    result = output
+                elif error:
+                    result = error
+                else:
+                    result = "Scan completed. No vulnerabilities found."
+
+            except subprocess.TimeoutExpired:
+                result = "Scan timed out after 60 seconds. Try a smaller or authorized target."
+            except Exception as e:
+                result = f"Error: {e}"
+
+    return render_template("index.html", result=result)
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)
