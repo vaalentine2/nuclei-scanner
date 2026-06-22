@@ -1,15 +1,17 @@
 FROM projectdiscovery/nuclei:latest
-
+ 
+USER root
+ 
 RUN apk add --no-cache python3 py3-pip
-
+ 
 WORKDIR /app
-
+ 
 COPY . .
-
-RUN python3 -m venv /app/venv
-RUN /app/venv/bin/pip install --upgrade pip
-RUN /app/venv/bin/pip install -r requirements.txt
-
+ 
+RUN pip install --no-cache-dir --break-system-packages -r requirements.txt
+ 
+RUN mkdir -p results
+ 
 EXPOSE 10000
-
-CMD ["/app/venv/bin/python", "app.py"]
+ 
+CMD gunicorn app:app --bind 0.0.0.0:10000 --workers 1 --timeout 360
