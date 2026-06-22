@@ -12,4 +12,4 @@ RUN /app/venv/bin/python -m pip install --no-cache-dir -r requirements.txt
 
 EXPOSE 10000
 
-CMD ["/app/venv/bin/python", "app.py"]
+CMD ["/app/venv/bin/gunicorn", "--bind", "0.0.0.0:10000", "--workers", "2", "--timeout", "180", "app:app"]
