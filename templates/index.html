@@ -1,16 +1,19 @@
 <!DOCTYPE html>
 <html>
+<head>
+    <title>Nuclei Security Scanner</title>
+</head>
 <body>
+    <h1>Nuclei Security Scanner</h1>
 
-<h1>Nuclei Security Scanner</h1>
+    <form method="POST">
+        <input type="text" name="target" placeholder="https://example.com" required>
+        <button type="submit">Scan</button>
+    </form>
 
-<form action="/scan" method="post">
-    <input name="target"
-           placeholder="https://example.com">
-    <button type="submit">
-        Scan
-    </button>
-</form>
-
+    {% if result %}
+        <h2>Result:</h2>
+        <pre>{{ result }}</pre>
+    {% endif %}
 </body>
 </html>
