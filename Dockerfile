@@ -7,6 +7,8 @@ COPY requirements.txt .
 RUN apk add --no-cache python3 py3-pip \
     && pip3 install --break-system-packages -r requirements.txt
 
+RUN nuclei -update-templates
+
 COPY . .
 
 RUN mkdir -p results
