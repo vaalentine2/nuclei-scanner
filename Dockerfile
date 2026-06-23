@@ -1,16 +1,16 @@
 FROM projectdiscovery/nuclei:latest
 
-RUN apk add --no-cache python3 py3-pip py3-virtualenv
-
 WORKDIR /app
+
+COPY requirements.txt .
+
+RUN apk add --no-cache python3 py3-pip \
+    && pip3 install --break-system-packages -r requirements.txt
 
 COPY . .
 
-RUN python3 -m venv /app/venv
-RUN /app/venv/bin/python -m pip install --upgrade pip
-RUN /app/venv/bin/python -m pip install --no-cache-dir -r requirements.txt
+RUN mkdir -p results
 
-EXPOSE 10000
+ENV PORT=10000
 
-ENTRYPOINT []
-CMD ["/app/venv/bin/gunicorn", "--bind", "0.0.0.0:10000", "--workers", "2", "--timeout", "180", "app:app"]
+CMD gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --threads 2 --timeout 120
