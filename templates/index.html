@@ -73,39 +73,24 @@
         <a href="/history">Scan history</a>
     </div>
 
-    {% if history %}
-        <h2>Scan History</h2>
+    <form method="POST">
+        <input 
+            type="text" 
+            name="target" 
+            placeholder="https://example.com" 
+            value="{{ target }}"
+            required
+        >
+        <button type="submit">Scan</button>
+    </form>
 
-        {% if files %}
-            <ul>
-                {% for file in files %}
-                    <li>{{ file.name }} — {{ file.time }}</li>
-                {% endfor %}
-            </ul>
-        {% else %}
-            <p>No scans yet.</p>
-        {% endif %}
+    {% if message %}
+        <div class="message">{{ message }}</div>
+    {% endif %}
 
-    {% else %}
-        <form method="POST">
-            <input 
-                type="text" 
-                name="target" 
-                placeholder="https://example.com" 
-                value="{{ target }}"
-                required
-            >
-            <button type="submit">Scan</button>
-        </form>
-
-        {% if message %}
-            <div class="message">{{ message }}</div>
-        {% endif %}
-
-        {% if result %}
-            <h2>Result</h2>
-            <pre>{{ result }}</pre>
-        {% endif %}
+    {% if result %}
+        <h2>Result</h2>
+        <pre>{{ result }}</pre>
     {% endif %}
 
 </body>
