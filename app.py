@@ -1,134 +1,91 @@
-from flask import Flask, render_template, request, url_for, abort
+from flask import Flask, render_template, request
 import subprocess
-import json
 import os
-from datetime import datetime, timezone
+import uuid
+from datetime import datetime
 
 app = Flask(__name__)
 
-RESULTS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "results")
+RESULTS_DIR = "results"
 os.makedirs(RESULTS_DIR, exist_ok=True)
-
-SEVERITY_ORDER = ["critical", "high", "medium", "low", "info", "unknown"]
-
-
-def run_nuclei(target):
-    """Run nuclei with JSONL output and return parsed finding objects."""
-    command = [
-        "nuclei",
-        "-u", target,
-        "-jsonl",        # machine-readable: one JSON object per finding
-        "-silent",
-        "-timeout", "5",
-        "-retries", "1",
-        "-no-color",
-    ]
-
-    completed = subprocess.run(
-        command, capture_output=True, text=True, timeout=120
-    )
-
-    findings = []
-    for line in completed.stdout.splitlines():
-        line = line.strip()
-        if not line:
-            continue
-        try:
-            findings.append(json.loads(line))
-        except json.JSONDecodeError:
-            continue
-    return findings
-
-
-def simplify(findings):
-    """Keep only the fields we display/store, sorted by severity."""
-    rows = []
-    for f in findings:
-        info = f.get("info", {}) or {}
-        rows.append({
-            "template_id": f.get("template-id", ""),
-            "name": info.get("name", ""),
-            "severity": (info.get("severity") or "unknown").lower(),
-            "matched_at": f.get("matched-at") or f.get("host", ""),
-            "type": f.get("type", ""),
-        })
-    rank = {s: i for i, s in enumerate(SEVERITY_ORDER)}
-    rows.sort(key=lambda r: rank.get(r["severity"], len(SEVERITY_ORDER)))
-    return rows
-
-
-def summarize(rows):
-    counts = {sev: 0 for sev in SEVERITY_ORDER}
-    for r in rows:
-        sev = r["severity"] if r["severity"] in counts else "unknown"
-        counts[sev] += 1
-    return counts
 
 
 @app.route("/", methods=["GET", "POST"])
 def index():
-    report = None
-    error = None
+    message = ""
+    result = ""
+    target = ""
 
     if request.method == "POST":
         target = request.form.get("target", "").strip()
-        if not target:
-            error = "Please enter a target."
-        else:
-            try:
-                rows = simplify(run_nuclei(target))
-                scan_id = "scan-" + datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
-                report = {
-                    "scan_id": scan_id,
-                    "target": target,
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                    "total": len(rows),
-                    "summary": summarize(rows),
-                    "findings": rows,
-                }
-                with open(os.path.join(RESULTS_DIR, scan_id + ".json"), "w", encoding="utf-8") as fh:
-                    json.dump(report, fh, indent=2)
-            except subprocess.TimeoutExpired:
-                error = "Scan timed out. Try a smaller or authorized target."
-            except Exception as e:
-                error = f"Error: {e}"
 
-    return render_template("index.html", report=report, error=error, severities=SEVERITY_ORDER)
+        if not target:
+            message = "Please enter a target URL."
+            return render_template("index.html", message=message, result=result, target=target)
+
+        if not target.startswith(("http://", "https://")):
+            message = "Target must start with http:// or https://"
+            return render_template("index.html", message=message, result=result, target=target)
+
+        scan_id = str(uuid.uuid4())[:8]
+        output_file = os.path.join(RESULTS_DIR, f"scan_{scan_id}.txt")
+
+        command = [
+            "nuclei",
+            "-u", target,
+            "-t", "http/technologies/",
+            "-severity", "info,low",
+            "-rate-limit", "5",
+            "-c", "2",
+            "-timeout", "5",
+            "-retries", "0",
+            "-o", output_file
+        ]
+
+        try:
+            subprocess.run(
+                command,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                timeout=40
+            )
+
+            if os.path.exists(output_file):
+                with open(output_file, "r", encoding="utf-8", errors="ignore") as file:
+                    result = file.read()
+
+            if not result.strip():
+                result = "Scan finished, but no results were found."
+
+            message = "Scan completed."
+
+        except subprocess.TimeoutExpired:
+            message = "Scan timed out. Try a smaller or authorized target."
+
+        except Exception as e:
+            message = f"Error: {str(e)}"
+
+    return render_template("index.html", message=message, result=result, target=target)
 
 
 @app.route("/history")
 def history():
-    scans = []
-    for name in os.listdir(RESULTS_DIR):
-        if not name.endswith(".json"):
-            continue
-        try:
-            with open(os.path.join(RESULTS_DIR, name), encoding="utf-8") as fh:
-                data = json.load(fh)
-            scans.append({
-                "scan_id": data.get("scan_id", name[:-5]),
-                "target": data.get("target", ""),
-                "timestamp": data.get("timestamp", ""),
-                "total": data.get("total", 0),
+    files = []
+
+    for filename in os.listdir(RESULTS_DIR):
+        if filename.endswith(".txt"):
+            path = os.path.join(RESULTS_DIR, filename)
+            files.append({
+                "name": filename,
+                "time": datetime.fromtimestamp(os.path.getmtime(path)).strftime("%Y-%m-%d %H:%M:%S")
             })
-        except Exception:
-            continue
-    scans.sort(key=lambda s: s["timestamp"], reverse=True)
-    return render_template("history.html", scans=scans)
 
+    files.sort(key=lambda x: x["time"], reverse=True)
 
-@app.route("/report/<scan_id>")
-def report(scan_id):
-    # block path traversal — only allow our own scan ids
-    if not scan_id.startswith("scan-") or any(c in scan_id for c in "/\\.") and ".." in scan_id:
-        abort(404)
-    path = os.path.join(RESULTS_DIR, scan_id + ".json")
-    if not os.path.isfile(path):
-        abort(404)
-    with open(path, encoding="utf-8") as fh:
-        data = json.load(fh)
-    return render_template("index.html", report=data, error=None, severities=SEVERITY_ORDER)
+    return render_template("index.html", files=files, history=True)
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=10000)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
