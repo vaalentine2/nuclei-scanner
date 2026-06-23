@@ -3,31 +3,67 @@
 <head>
     <title>Scan History</title>
     <style>
-        body { font-family: system-ui, sans-serif; max-width: 900px; margin: 2rem auto; padding: 0 1rem; }
-        table { border-collapse: collapse; width: 100%; }
-        th, td { border: 1px solid #ddd; padding: .5rem; text-align: left; font-size: .9rem; }
-        th { background: #f5f5f5; }
-        a { color: #1976d2; }
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 900px;
+            margin: 60px auto;
+            padding: 20px;
+        }
+
+        h1 {
+            font-size: 36px;
+            letter-spacing: 2px;
+        }
+
+        a {
+            color: #0066cc;
+            font-size: 18px;
+        }
+
+        .scan {
+            margin-top: 25px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+
+        pre {
+            background: #111;
+            color: #00ff88;
+            padding: 20px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            border-radius: 8px;
+        }
+
+        .empty {
+            margin-top: 20px;
+            color: gray;
+        }
     </style>
 </head>
 <body>
-    <h1>Scan History</h1>
-    <p><a href="{{ url_for('index') }}">New scan</a></p>
 
-    {% if scans %}
-        <table>
-            <tr><th>Date (UTC)</th><th>Target</th><th>Findings</th><th>Report</th></tr>
-            {% for s in scans %}
-                <tr>
-                    <td>{{ s.timestamp }}</td>
-                    <td>{{ s.target }}</td>
-                    <td>{{ s.total }}</td>
-                    <td><a href="{{ url_for('report', scan_id=s.scan_id) }}">View</a></td>
-                </tr>
-            {% endfor %}
-        </table>
+    <h1>Scan History</h1>
+
+    <a href="/">Back to scanner</a>
+
+    {% if files %}
+        {% for file in files %}
+            <div class="scan">
+                <h3>{{ file.name }}</h3>
+                <p>{{ file.time }}</p>
+
+                {% if file.content %}
+                    <pre>{{ file.content }}</pre>
+                {% else %}
+                    <p>No result content.</p>
+                {% endif %}
+            </div>
+        {% endfor %}
     {% else %}
-        <p>No scans yet.</p>
+        <p class="empty">No scans yet.</p>
     {% endif %}
+
 </body>
 </html>
