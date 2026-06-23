@@ -31,16 +31,16 @@ def index():
         output_file = os.path.join(RESULTS_DIR, f"scan_{scan_id}.txt")
 
         command = [
-            "nuclei",
-            "-u", target,
-            "-t", "http/technologies/",
-            "-severity", "info,low",
-            "-rate-limit", "5",
-            "-c", "2",
-            "-timeout", "5",
-            "-retries", "0",
-            "-o", output_file
-        ]
+    "nuclei",
+    "-u", target,
+    "-t", "/root/nuclei-templates/http/technologies/",
+    "-severity", "info,low",
+    "-rate-limit", "5",
+    "-c", "2",
+    "-timeout", "5",
+    "-retries", "0",
+    "-o", output_file
+]
 
         try:
             subprocess.run(
